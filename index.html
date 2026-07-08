@@ -10,8 +10,11 @@
   html, body { height: 100%; }
   body {
     font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
-    /* 深色渐变背景 */
-    background: linear-gradient(135deg, #1f2544 0%, #2d1b4e 50%, #3a2456 100%);
+    /* 低饱和度深色渐变大背景，柔和耐看 */
+    background:
+      radial-gradient(1200px 600px at 15% 10%, rgba(90,110,160,0.35), transparent 60%),
+      radial-gradient(1000px 700px at 85% 90%, rgba(120,95,160,0.30), transparent 60%),
+      linear-gradient(140deg, #232a3d 0%, #2a2740 55%, #302a42 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -21,11 +24,14 @@
     overflow: auto;
   }
 
-  /* ===== 白色圆角大面板 ===== */
+  /* ===== 白色半透明圆角大面板（模糊阴影） ===== */
   .panel {
-    background: #ffffff;
-    border-radius: 24px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.2);
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(16px) saturate(1.2);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 26px;
+    box-shadow: 0 24px 70px rgba(20,20,50,0.5), 0 4px 14px rgba(0,0,0,0.18);
     padding: 22px 24px 18px;
     width: min(92vw, 640px);
     display: flex;
@@ -58,15 +64,20 @@
     gap: 10px;
   }
   .stat {
-    background: linear-gradient(135deg, #f4f2ff, #eef4ff);
-    border: 1px solid #e6e2ff;
-    border-radius: 14px;
-    padding: 8px 14px;
+    background: linear-gradient(135deg, #ffffff, #eef2ff);
+    border: 1px solid rgba(120,110,220,0.18);
+    border-radius: 16px;
+    padding: 9px 16px;
     text-align: center;
-    min-width: 78px;
+    min-width: 82px;
+    box-shadow: 0 4px 12px rgba(90,77,224,0.14), inset 0 1px 2px rgba(255,255,255,0.9);
   }
   .stat .label { font-size: 11px; color: #9a95c9; letter-spacing: 1px; }
-  .stat .value { font-size: 20px; font-weight: 800; color: #5a4de0; line-height: 1.1; }
+  .stat .value {
+    font-size: 22px; font-weight: 800; line-height: 1.1;
+    background: linear-gradient(90deg, #6a5cff, #9a6bff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
 
   /* ===== 游戏画布区 ===== */
   .stage {
@@ -74,7 +85,7 @@
     background: linear-gradient(160deg, #efeafd, #e6eefb);
     border-radius: 18px;
     padding: 14px;
-    box-shadow: inset 0 2px 10px rgba(90,77,224,0.12);
+    box-shadow: inset 0 2px 12px rgba(90,77,224,0.14), 0 2px 6px rgba(0,0,0,0.05);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -214,15 +225,15 @@
    每关是一个字符串数组，每个字符串是一行，长度需一致。
    ========================================================= */
 const LEVELS = [
-  // ---- 第 1-3 关：入门单箱子，简单直线 ----
-  [ // 1
+  // ================= 第 1-3 关：入门单箱子，直线布局 =================
+  [ // 1 —— 向右推一格
     "#######",
     "#     #",
     "#@$  .#",
     "#     #",
     "#######"
   ],
-  [ // 2
+  [ // 2 —— 向上推两格
     "#######",
     "#   . #",
     "#     #",
@@ -230,7 +241,7 @@ const LEVELS = [
     "#   @ #",
     "#######"
   ],
-  [ // 3
+  [ // 3 —— 向下推两格
     "#######",
     "# @   #",
     "# $   #",
@@ -238,50 +249,53 @@ const LEVELS = [
     "# .   #",
     "#######"
   ],
-  // ---- 第 4-7 关：2~3 个箱子，小型迷宫 ----
-  [ // 4
+  // ================= 第 4-6 关：2 个箱子，小型迂回迷宫 =================
+  [ // 4 —— 两箱分别向上，需绕到箱后
     "########",
+    "#      #",
     "#  ..  #",
     "#  $$  #",
     "#  @   #",
     "#      #",
     "########"
   ],
-  [ // 5
+  [ // 5 —— 两箱向左右分开推
     "#########",
     "#       #",
     "#.$ @ $.#",
     "#       #",
     "#########"
   ],
-  [ // 6
+  [ // 6 —— 中间竖墙分隔，需从底部绕路
+    "#########",
+    "#   #   #",
+    "# . # . #",
+    "# $ # $ #",
+    "#   #   #",
+    "#@      #",
+    "#########"
+  ],
+  // ================= 第 7-8 关：3 个箱子，多层迂回 =================
+  [ // 7 —— 三箱向上，中央障碍需绕行
     "##########",
+    "# .  .  .#",
+    "# $  $  $#",
     "#        #",
-    "# . . .  #",
-    "# $ $ $  #",
+    "#  ####  #",
     "#   @    #",
     "##########"
   ],
-  [ // 7
-    "##########",
-    "#  .  .  #",
-    "#  $  $  #",
-    "#        #",
-    "#  . $   #",
-    "#   @    #",
-    "##########"
+  [ // 8 —— 三箱向右推，需反复绕到箱后
+    "#########",
+    "#       #",
+    "# $   . #",
+    "# $   . #",
+    "# $   . #",
+    "#  @    #",
+    "#########"
   ],
-  // ---- 第 8-10 关：4 个及以上箱子，复杂迂回迷宫 ----
-  [ // 8
-    "##########",
-    "##      ##",
-    "# .$  $. #",
-    "#        #",
-    "# .$  $. #",
-    "##  @   ##",
-    "##########"
-  ],
-  [ // 9
+  // ================= 第 9-10 关：4 个箱子，高难度迂回 =================
+  [ // 9 —— 四箱两上两下，讲究顺序
     "##########",
     "#   ..   #",
     "#   $$   #",
@@ -291,14 +305,16 @@ const LEVELS = [
     "#  @     #",
     "##########"
   ],
-  [ // 10
-    "#############",
-    "#           #",
-    "# . . . . . #",
-    "# $ $ $ $ $ #",
-    "#           #",
-    "#     @     #",
-    "#############"
+  [ // 10 —— 中央墙块，四箱需绕大圈就位
+    "############",
+    "#          #",
+    "#  .    .  #",
+    "#  $    $  #",
+    "#   ####   #",
+    "#  $    $  #",
+    "#  .    .  #",
+    "#    @     #",
+    "############"
   ]
 ];
 
@@ -347,7 +363,11 @@ function loadLevel(index) {
       // 箱子：$ *
       if (ch === '$' || ch === '*') boxes.push({ r, c, x: cellToPx(c), y: cellToPx(r) });
       // 玩家：@ +
-      if (ch === '@' || ch === '+') player = { r, c, x: cellToPx(c), y: cellToPx(r), squash: 0, dir: 0 };
+      if (ch === '@' || ch === '+') player = {
+        r, c, x: cellToPx(c), y: cellToPx(r),
+        squash: 0, dir: 0, moving: 0, bounce: 0,
+        face: { dr: 0, dc: 0 }, bounceDir: { dr: 0, dc: 0 }
+      };
     }
   }
 
@@ -390,25 +410,37 @@ function isTarget(r, c) {
 function tryMove(dr, dc) {
   if (animating || solved) return;
   player.dir = (dc < 0) ? -1 : (dc > 0 ? 1 : player.dir); // 记录朝向（用于小人面向）
+  player.face = { dr, dc };                    // 记录移动方向（用于形变方向）
 
   const nr = player.r + dr, nc = player.c + dc;
-  if (isWall(nr, nc)) return;                 // 前方是墙，不能走
+  if (isWall(nr, nc)) { bounce(dr, dc); return; }        // 前方是墙：轻微回弹
 
   const box = boxAt(nr, nc);
   if (box) {
     // 前方是箱子：检查箱子前方
     const br = nr + dr, bc = nc + dc;
-    if (isWall(br, bc) || boxAt(br, bc)) return; // 箱子前方是墙或另一箱子，推不动
+    if (isWall(br, bc) || boxAt(br, bc)) { bounce(dr, dc); return; } // 推不动：回弹
     // 推动箱子
     box.r = br; box.c = bc;
-    player.squash = 1;                          // 触发挤压反馈动画
+    player.squash = 1.15;                        // 推箱：更强的挤压反馈
+  } else {
+    player.squash = 0.6;                         // 普通移动：轻度缩放缓冲
   }
 
   // 移动玩家
   player.r = nr; player.c = nc;
+  player.moving = 1;                             // 标记进入移动状态
   moves++;
   document.getElementById('moveCount').textContent = moves;
   animating = true;                             // 开始动画，锁定输入直到缓动结束
+}
+
+/* 撞墙回弹：朝目标方向微微顶出再弹回 */
+function bounce(dr, dc) {
+  if (player.bounce > 0.01) return;              // 回弹中不重复触发
+  player.bounce = 1;
+  player.bounceDir = { dr, dc };
+  animating = true;
 }
 
 /* =========================================================
@@ -542,34 +574,82 @@ function drawBox(b) {
   ctx.moveTo(x + 10, y + 10); ctx.lineTo(x + TILE - 10, y + TILE - 10);
   ctx.moveTo(x + TILE - 10, y + 10); ctx.lineTo(x + 10, y + TILE - 10);
   ctx.stroke();
+  // 木纹横条
+  ctx.strokeStyle = 'rgba(120,75,30,0.30)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x + 12, y + TILE / 2); ctx.lineTo(x + TILE - 12, y + TILE / 2);
+  ctx.stroke();
+  // 边角高光（左上亮、右下暗，增强立体感）
+  ctx.strokeStyle = 'rgba(255,240,210,0.55)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x + 11, y + 14); ctx.lineTo(x + 11, y + 11); ctx.lineTo(x + 14, y + 11);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(70,42,15,0.5)';
+  ctx.beginPath();
+  ctx.moveTo(x + TILE - 14, y + TILE - 11); ctx.lineTo(x + TILE - 11, y + TILE - 11); ctx.lineTo(x + TILE - 11, y + TILE - 14);
+  ctx.stroke();
 }
 
 /* 绘制圆润卡通玩家（渐变 + 黑轮廓 + 挤压缩放反馈） */
-function drawPlayer() {
-  const cx = player.x + TILE / 2, cy = player.y + TILE / 2;
-  // 挤压：squash 从 1 衰减到 0，横向拉伸纵向压扁
+function drawPlayer(t) {
+  // 撞墙回弹：朝目标方向顶出一点点再弹回（正弦包络）
+  const bAmt = Math.sin(player.bounce * Math.PI) * 7;
+  const bx = player.bounceDir.dc * bAmt;
+  const by = player.bounceDir.dr * bAmt;
+  const cx = player.x + TILE / 2 + bx;
+  const cy = player.y + TILE / 2 + by;
+
+  // 站立时的轻微呼吸浮动；移动时几乎无呼吸
+  const idle = (1 - player.moving);
+  const breathe = Math.sin(t / 520) * 1.6 * idle;
+
+  // 挤压形变：沿移动方向拉伸，垂直方向压扁
   const s = player.squash;
-  const sx = 1 + s * 0.18, sy = 1 - s * 0.18;
+  const horiz = Math.abs(player.face.dc) >= Math.abs(player.face.dr);
+  const sx = horiz ? 1 + s * 0.20 : 1 - s * 0.16;
+  const sy = horiz ? 1 - s * 0.16 : 1 + s * 0.20;
   const rad = TILE * 0.30;
+
   ctx.save();
-  ctx.translate(cx, cy);
+  ctx.translate(cx, cy + breathe);
+
+  // 落地投影（移动时更扁更淡，站立时更聚拢）
+  ctx.save();
+  ctx.scale(1, 0.4);
+  ctx.beginPath();
+  ctx.arc(0, (rad + 8) / 0.4, rad * (0.85 + player.moving * 0.15), 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(20,25,50,0.18)';
+  ctx.fill();
+  ctx.restore();
+
   ctx.scale(sx, sy);
-  // 身体
-  ctx.shadowColor = 'rgba(0,0,0,0.28)';
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetY = 3;
+
+  // 身体（柔和渐变填充 + 圆角轮廓）
+  ctx.shadowColor = 'rgba(30,40,80,0.30)';
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetY = 4;
   ctx.beginPath();
   ctx.arc(0, 0, rad, 0, Math.PI * 2);
-  const g = ctx.createLinearGradient(0, -rad, 0, rad);
-  g.addColorStop(0, '#7fc4ff');
+  const g = ctx.createRadialGradient(-rad * 0.35, -rad * 0.45, rad * 0.2, 0, 0, rad * 1.15);
+  g.addColorStop(0, '#a9dbff');
+  g.addColorStop(0.55, '#6bb0f5');
   g.addColorStop(1, '#3f7fe0');
   ctx.fillStyle = g;
   ctx.fill();
   ctx.shadowColor = 'transparent';
   ctx.lineWidth = 3;
-  ctx.strokeStyle = '#1b2a45';
+  ctx.strokeStyle = '#22355c';
   ctx.stroke();
-  // 眼睛（跟随朝向）
+
+  // 顶部高光，增加圆润立体感
+  ctx.beginPath();
+  ctx.ellipse(-rad * 0.3, -rad * 0.5, rad * 0.38, rad * 0.24, -0.5, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fill();
+
+  // 眼睛（跟随朝向偏移）
   const eo = player.dir * 3;
   ctx.fillStyle = '#fff';
   ctx.beginPath(); ctx.arc(-7 + eo, -4, 5.5, 0, Math.PI * 2); ctx.fill();
@@ -577,12 +657,26 @@ function drawPlayer() {
   ctx.fillStyle = '#1b2a45';
   ctx.beginPath(); ctx.arc(-6 + eo, -4, 2.6, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(8 + eo, -4, 2.6, 0, Math.PI * 2); ctx.fill();
-  // 微笑
+
+  // 表情：移动时张嘴（O型），站立时微笑
   ctx.strokeStyle = '#1b2a45';
   ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(0, 4, 6, 0.15 * Math.PI, 0.85 * Math.PI);
-  ctx.stroke();
+  if (player.moving > 0.25) {
+    ctx.beginPath();
+    ctx.arc(0, 6, 3.2, 0, Math.PI * 2);
+    ctx.fillStyle = '#25406e';
+    ctx.fill();
+  } else {
+    ctx.beginPath();
+    ctx.arc(0, 4, 6, 0.15 * Math.PI, 0.85 * Math.PI);
+    ctx.stroke();
+  }
+
+  // 腮红点缀
+  ctx.fillStyle = 'rgba(255,140,170,0.5)';
+  ctx.beginPath(); ctx.arc(-rad * 0.55, 5, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(rad * 0.55, 5, 3, 0, Math.PI * 2); ctx.fill();
+
   ctx.restore();
 }
 
@@ -601,8 +695,16 @@ function updateAnimation() {
   else { player.x = ptx; player.y = pty; }
 
   // 挤压反馈衰减
-  if (player.squash > 0.01) { player.squash *= 0.82; moving = true; }
+  if (player.squash > 0.01) { player.squash *= 0.80; moving = true; }
   else player.squash = 0;
+
+  // 移动状态标记衰减（用于区分站立/移动）
+  if (player.moving > 0.01) { player.moving *= 0.82; if (!moving) player.moving = 0; }
+  else player.moving = 0;
+
+  // 撞墙回弹衰减（正弦式顶出再弹回）
+  if (player.bounce > 0.01) { player.bounce *= 0.72; moving = true; }
+  else player.bounce = 0;
 
   // 箱子平滑缓动
   boxes.forEach(b => {
@@ -641,7 +743,7 @@ function loop(t) {
     for (let c = 0; c < cols; c++)
       if (isWall(r, c)) drawWall(r, c);
   boxes.forEach(drawBox);
-  drawPlayer();
+  drawPlayer(t);
   requestAnimationFrame(loop);
 }
 
