@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>推箱子 · Sokoban</title>
+<style>
+  /* ===== 全局基础样式 ===== */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    /* 深色渐变背景 */
+    background: linear-gradient(135deg, #1f2544 0%, #2d1b4e 50%, #3a2456 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: 20px;
+    color: #333;
+    overflow: auto;
+  }
+
+  /* ===== 白色圆角大面板 ===== */
+  .panel {
+    background: #ffffff;
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.2);
+    padding: 22px 24px 18px;
+    width: min(92vw, 640px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* ===== 顶部标题栏 ===== */
+  .titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .title {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #6a5cff, #ff6ba8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .subtitle { font-size: 12px; color: #999; letter-spacing: 1px; }
+
+  /* ===== 数据统计栏 ===== */
+  .stats {
+    display: flex;
+    gap: 10px;
+  }
+  .stat {
+    background: linear-gradient(135deg, #f4f2ff, #eef4ff);
+    border: 1px solid #e6e2ff;
+    border-radius: 14px;
+    padding: 8px 14px;
+    text-align: center;
+    min-width: 78px;
+  }
+  .stat .label { font-size: 11px; color: #9a95c9; letter-spacing: 1px; }
+  .stat .value { font-size: 20px; font-weight: 800; color: #5a4de0; line-height: 1.1; }
+
+  /* ===== 游戏画布区 ===== */
+  .stage {
+    position: relative;
+    background: linear-gradient(160deg, #efeafd, #e6eefb);
+    border-radius: 18px;
+    padding: 14px;
+    box-shadow: inset 0 2px 10px rgba(90,77,224,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+  }
+
+  /* ===== 底部操作栏 ===== */
+  .controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  /* 统一按钮样式：圆角、渐变、悬浮放大 */
+  .btn {
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #7b6cff, #9a6bff);
+    box-shadow: 0 6px 16px rgba(123,108,255,0.4);
+    transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+  }
+  .btn:hover { transform: scale(1.06); box-shadow: 0 8px 22px rgba(123,108,255,0.55); }
+  .btn:active { transform: scale(0.97); }
+  .btn.secondary { background: linear-gradient(135deg, #ff7eb3, #ff6a8b); box-shadow: 0 6px 16px rgba(255,110,150,0.4); }
+  .btn.ghost { background: linear-gradient(135deg, #8ea2c9, #6e83ad); box-shadow: 0 6px 16px rgba(110,131,173,0.35); }
+
+  .hint {
+    text-align: center;
+    font-size: 12.5px;
+    color: #8a86a8;
+    letter-spacing: 0.5px;
+  }
+  .hint b { color: #6a5cff; }
+
+  /* ===== 通关弹窗 ===== */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    /* 背景轻微模糊，不完全遮挡地图 */
+    background: rgba(30,25,60,0.35);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 50;
+  }
+  .overlay.show { display: flex; animation: fadeIn .25s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: linear-gradient(150deg, #ffffff, #f3efff);
+    border-radius: 22px;
+    padding: 30px 34px;
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+    max-width: 82vw;
+    animation: pop .32s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes pop { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal .emoji { font-size: 46px; }
+  .modal h2 {
+    margin: 8px 0 4px;
+    font-size: 26px;
+    background: linear-gradient(90deg, #6a5cff, #ff6ba8);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .modal p { color: #877fb0; font-size: 14px; margin-bottom: 18px; }
+
+  @media (max-width: 480px) {
+    .title { font-size: 22px; }
+    .stat { min-width: 64px; padding: 6px 10px; }
+    .btn { padding: 9px 15px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <!-- 顶部标题栏 -->
+    <div class="titlebar">
+      <div>
+        <div class="title">🎯 推箱子</div>
+        <div class="subtitle">SOKOBAN · 卡通闯关版</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="label">关卡</div><div class="value" id="levelNo">1</div></div>
+        <div class="stat"><div class="label">步数</div><div class="value" id="moveCount">0</div></div>
+      </div>
+    </div>
+
+    <!-- 游戏画布 -->
+    <div class="stage">
+      <canvas id="game"></canvas>
+    </div>
+
+    <!-- 底部操作按钮 -->
+    <div class="controls">
+      <button class="btn ghost" id="prevBtn">◀ 上一关</button>
+      <button class="btn secondary" id="resetBtn">↻ 重置</button>
+      <button class="btn" id="nextBtn">下一关 ▶</button>
+    </div>
+
+    <!-- 操作提示 -->
+    <div class="hint">
+      使用 <b>方向键</b> 或 <b>W / A / S / D</b> 移动小人 · 把所有 <b>木箱</b> 推到 <b>发光终点</b> 即可通关
+    </div>
+  </div>
+
+  <!-- 通关弹窗 -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <div class="emoji" id="modalEmoji">🎉</div>
+      <h2 id="modalTitle">恭喜过关！</h2>
+      <p id="modalText">正在进入下一关…</p>
+      <button class="btn" id="modalBtn">继续</button>
+    </div>
+  </div>
+
+<script>
+/* =========================================================
+   关卡数据（独立存放，方便后续自行增改关卡）
+   图例符号：
+     #  墙壁      （空格）地板
+     .  终点      $  箱子
+     *  箱子已在终点上   @  玩家
+     +  玩家站在终点上
+   每关是一个字符串数组，每个字符串是一行，长度需一致。
+   ========================================================= */
+const LEVELS = [
+  // ---- 第 1-3 关：入门单箱子，简单直线 ----
+  [ // 1
+    "#######",
+    "#     #",
+    "#@$  .#",
+    "#     #",
+    "#######"
+  ],
+  [ // 2
+    "#######",
+    "#   . #",
+    "#     #",
+    "#   $ #",
+    "#   @ #",
+    "#######"
+  ],
+  [ // 3
+    "#######",
+    "# @   #",
+    "# $   #",
+    "#     #",
+    "# .   #",
+    "#######"
+  ],
+  // ---- 第 4-7 关：2~3 个箱子，小型迷宫 ----
+  [ // 4
+    "########",
+    "#  ..  #",
+    "#  $$  #",
+    "#  @   #",
+    "#      #",
+    "########"
+  ],
+  [ // 5
+    "#########",
+    "#       #",
+    "#.$ @ $.#",
+    "#       #",
+    "#########"
+  ],
+  [ // 6
+    "##########",
+    "#        #",
+    "# . . .  #",
+    "# $ $ $  #",
+    "#   @    #",
+    "##########"
+  ],
+  [ // 7
+    "##########",
+    "#  .  .  #",
+    "#  $  $  #",
+    "#        #",
+    "#  . $   #",
+    "#   @    #",
+    "##########"
+  ],
+  // ---- 第 8-10 关：4 个及以上箱子，复杂迂回迷宫 ----
+  [ // 8
+    "##########",
+    "##      ##",
+    "# .$  $. #",
+    "#        #",
+    "# .$  $. #",
+    "##  @   ##",
+    "##########"
+  ],
+  [ // 9
+    "##########",
+    "#   ..   #",
+    "#   $$   #",
+    "#        #",
+    "#   $$   #",
+    "#   ..   #",
+    "#  @     #",
+    "##########"
+  ],
+  [ // 10
+    "#############",
+    "#           #",
+    "# . . . . . #",
+    "# $ $ $ $ $ #",
+    "#           #",
+    "#     @     #",
+    "#############"
+  ]
+];
+
+/* =========================================================
+   基础配置与全局状态
+   ========================================================= */
+const TILE = 64;                 // 每个格子的逻辑像素尺寸
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+let current = 0;                 // 当前关卡索引
+let moves = 0;                   // 当前关卡移动步数
+let walls = [];                  // 墙壁二维布尔数组 walls[r][c]
+let targets = [];                // 终点坐标数组 {r,c}
+let boxes = [];                  // 箱子数组 {r,c, x,y}  r/c为格子逻辑坐标，x/y为动画像素坐标
+let player = null;               // 玩家 {r,c, x,y, squash, dir}
+let rows = 0, cols = 0;          // 地图行列数
+let animating = false;           // 是否正在播放移动动画（动画期间锁定输入）
+let solved = false;              // 当前关是否已通关（防止重复弹窗）
+
+/* 将逻辑格子坐标转换为像素坐标（格子左上角） */
+function cellToPx(n) { return n * TILE; }
+
+/* =========================================================
+   关卡解析：把字符串数组转成内部数据结构
+   ========================================================= */
+function loadLevel(index) {
+  const map = LEVELS[index];
+  rows = map.length;
+  cols = Math.max(...map.map(r => r.length));
+
+  walls = [];
+  targets = [];
+  boxes = [];
+  player = null;
+  moves = 0;
+  solved = false;
+
+  for (let r = 0; r < rows; r++) {
+    walls[r] = [];
+    for (let c = 0; c < cols; c++) {
+      const ch = map[r][c] || ' ';
+      walls[r][c] = (ch === '#');
+      // 终点：. * +
+      if (ch === '.' || ch === '*' || ch === '+') targets.push({ r, c });
+      // 箱子：$ *
+      if (ch === '$' || ch === '*') boxes.push({ r, c, x: cellToPx(c), y: cellToPx(r) });
+      // 玩家：@ +
+      if (ch === '@' || ch === '+') player = { r, c, x: cellToPx(c), y: cellToPx(r), squash: 0, dir: 0 };
+    }
+  }
+
+  // 设置画布尺寸（考虑高清屏 devicePixelRatio）
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = cols * TILE * dpr;
+  canvas.height = rows * TILE * dpr;
+  canvas.style.width = (cols * TILE) + 'px';
+  canvas.style.height = (rows * TILE) + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  document.getElementById('levelNo').textContent = index + 1;
+  document.getElementById('moveCount').textContent = moves;
+  updateNavButtons();
+}
+
+/* 更新上一关/下一关按钮的可用状态 */
+function updateNavButtons() {
+  document.getElementById('prevBtn').disabled = (current === 0);
+  document.getElementById('prevBtn').style.opacity = (current === 0) ? 0.45 : 1;
+}
+
+/* 查询某格是否是墙 */
+function isWall(r, c) {
+  if (r < 0 || c < 0 || r >= rows || c >= cols) return true; // 越界当作墙
+  return walls[r][c];
+}
+/* 查询某格是否有箱子，返回箱子对象或 null */
+function boxAt(r, c) {
+  return boxes.find(b => b.r === r && b.c === c) || null;
+}
+/* 查询某格是否是终点 */
+function isTarget(r, c) {
+  return targets.some(t => t.r === r && t.c === c);
+}
+
+/* =========================================================
+   移动逻辑：dr/dc 为方向增量（一次一格）
+   ========================================================= */
+function tryMove(dr, dc) {
+  if (animating || solved) return;
+  player.dir = (dc < 0) ? -1 : (dc > 0 ? 1 : player.dir); // 记录朝向（用于小人面向）
+
+  const nr = player.r + dr, nc = player.c + dc;
+  if (isWall(nr, nc)) return;                 // 前方是墙，不能走
+
+  const box = boxAt(nr, nc);
+  if (box) {
+    // 前方是箱子：检查箱子前方
+    const br = nr + dr, bc = nc + dc;
+    if (isWall(br, bc) || boxAt(br, bc)) return; // 箱子前方是墙或另一箱子，推不动
+    // 推动箱子
+    box.r = br; box.c = bc;
+    player.squash = 1;                          // 触发挤压反馈动画
+  }
+
+  // 移动玩家
+  player.r = nr; player.c = nc;
+  moves++;
+  document.getElementById('moveCount').textContent = moves;
+  animating = true;                             // 开始动画，锁定输入直到缓动结束
+}
+
+/* =========================================================
+   绘图辅助
+   ========================================================= */
+/* 圆角矩形路径 */
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/* 绘制木纹地板格子（相邻深浅交错 + 内阴影立体感） */
+function drawFloor(r, c) {
+  const x = cellToPx(c), y = cellToPx(r);
+  const dark = (r + c) % 2 === 0;
+  const base = dark ? '#d9b98c' : '#e7cda6';   // 木色深浅交错
+  const edge = dark ? '#c9a878' : '#d8bd94';
+  roundRect(x + 2, y + 2, TILE - 4, TILE - 4, 8);
+  const g = ctx.createLinearGradient(x, y, x, y + TILE);
+  g.addColorStop(0, edge);
+  g.addColorStop(0.5, base);
+  g.addColorStop(1, edge);
+  ctx.fillStyle = g;
+  ctx.fill();
+  // 细木纹纹理
+  ctx.save();
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(150,110,70,0.15)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x + 6, y + 14 + i * 18);
+    ctx.bezierCurveTo(x + 22, y + 10 + i * 18, x + 42, y + 20 + i * 18, x + TILE - 6, y + 14 + i * 18);
+    ctx.stroke();
+  }
+  ctx.restore();
+  // 内阴影
+  ctx.strokeStyle = 'rgba(120,80,50,0.18)';
+  ctx.lineWidth = 2;
+  roundRect(x + 3, y + 3, TILE - 6, TILE - 6, 7);
+  ctx.stroke();
+}
+
+/* 绘制立体石块墙 */
+function drawWall(r, c) {
+  const x = cellToPx(c), y = cellToPx(r);
+  // 外阴影
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.35)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 3;
+  roundRect(x + 2, y + 2, TILE - 4, TILE - 4, 9);
+  const g = ctx.createLinearGradient(x, y, x, y + TILE);
+  g.addColorStop(0, '#6b6f7d');
+  g.addColorStop(1, '#3f4351');
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.restore();
+  // 高光边（凹凸质感）
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 2;
+  roundRect(x + 5, y + 5, TILE - 10, TILE - 10, 6);
+  ctx.stroke();
+  // 石块分割线
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x + 6, y + TILE / 2);
+  ctx.lineTo(x + TILE - 6, y + TILE / 2);
+  ctx.moveTo(x + TILE / 2, y + 6);
+  ctx.lineTo(x + TILE / 2, y + TILE / 2);
+  ctx.stroke();
+}
+
+/* 绘制发光终点（呼吸闪烁；已放箱变亮绿） */
+function drawTarget(r, c, t) {
+  const x = cellToPx(c) + TILE / 2, y = cellToPx(r) + TILE / 2;
+  const done = !!boxAt(r, c);
+  const pulse = 0.5 + 0.5 * Math.sin(t / 400);   // 呼吸系数 0~1
+  const radius = TILE * 0.26 + pulse * 3;
+  ctx.save();
+  ctx.shadowColor = done ? 'rgba(60,220,90,0.9)' : 'rgba(120,230,150,0.7)';
+  ctx.shadowBlur = done ? 18 : 10 + pulse * 8;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = done ? '#2fce62' : `rgba(90,215,130,${0.6 + pulse * 0.4})`;
+  ctx.lineWidth = done ? 5 : 4;
+  ctx.stroke();
+  // 内圈光点
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.42, 0, Math.PI * 2);
+  ctx.fillStyle = done ? 'rgba(70,220,110,0.55)' : `rgba(140,235,175,${0.25 + pulse * 0.3})`;
+  ctx.fill();
+  ctx.restore();
+}
+
+/* 绘制木箱（在终点上时发光高亮） */
+function drawBox(b) {
+  const x = b.x, y = b.y;
+  const onTarget = isTarget(b.r, b.c);
+  ctx.save();
+  if (onTarget) {           // 到位发光
+    ctx.shadowColor = 'rgba(90,230,120,0.9)';
+    ctx.shadowBlur = 16;
+  } else {
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 3;
+  }
+  roundRect(x + 8, y + 8, TILE - 16, TILE - 16, 8);
+  const g = ctx.createLinearGradient(x, y, x, y + TILE);
+  g.addColorStop(0, onTarget ? '#e3b06a' : '#d79a4e');
+  g.addColorStop(1, onTarget ? '#c78f45' : '#b0742f');
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.restore();
+  // 深色边框
+  ctx.strokeStyle = onTarget ? '#7a5a1e' : '#6e4a1c';
+  ctx.lineWidth = 3;
+  roundRect(x + 8, y + 8, TILE - 16, TILE - 16, 8);
+  ctx.stroke();
+  // 木箱交叉纹理
+  ctx.strokeStyle = 'rgba(90,55,20,0.55)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x + 10, y + 10); ctx.lineTo(x + TILE - 10, y + TILE - 10);
+  ctx.moveTo(x + TILE - 10, y + 10); ctx.lineTo(x + 10, y + TILE - 10);
+  ctx.stroke();
+}
+
+/* 绘制圆润卡通玩家（渐变 + 黑轮廓 + 挤压缩放反馈） */
+function drawPlayer() {
+  const cx = player.x + TILE / 2, cy = player.y + TILE / 2;
+  // 挤压：squash 从 1 衰减到 0，横向拉伸纵向压扁
+  const s = player.squash;
+  const sx = 1 + s * 0.18, sy = 1 - s * 0.18;
+  const rad = TILE * 0.30;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(sx, sy);
+  // 身体
+  ctx.shadowColor = 'rgba(0,0,0,0.28)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, rad, 0, Math.PI * 2);
+  const g = ctx.createLinearGradient(0, -rad, 0, rad);
+  g.addColorStop(0, '#7fc4ff');
+  g.addColorStop(1, '#3f7fe0');
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#1b2a45';
+  ctx.stroke();
+  // 眼睛（跟随朝向）
+  const eo = player.dir * 3;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-7 + eo, -4, 5.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(7 + eo, -4, 5.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1b2a45';
+  ctx.beginPath(); ctx.arc(-6 + eo, -4, 2.6, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(8 + eo, -4, 2.6, 0, Math.PI * 2); ctx.fill();
+  // 微笑
+  ctx.strokeStyle = '#1b2a45';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 4, 6, 0.15 * Math.PI, 0.85 * Math.PI);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* =========================================================
+   动画与主循环
+   ========================================================= */
+function updateAnimation() {
+  const speed = 0.28;        // 缓动系数（越大越快）
+  let moving = false;
+
+  // 玩家平滑缓动到目标格
+  const ptx = cellToPx(player.c), pty = cellToPx(player.r);
+  player.x += (ptx - player.x) * speed;
+  player.y += (pty - player.y) * speed;
+  if (Math.abs(ptx - player.x) > 0.5 || Math.abs(pty - player.y) > 0.5) moving = true;
+  else { player.x = ptx; player.y = pty; }
+
+  // 挤压反馈衰减
+  if (player.squash > 0.01) { player.squash *= 0.82; moving = true; }
+  else player.squash = 0;
+
+  // 箱子平滑缓动
+  boxes.forEach(b => {
+    const btx = cellToPx(b.c), bty = cellToPx(b.r);
+    b.x += (btx - b.x) * speed;
+    b.y += (bty - b.y) * speed;
+    if (Math.abs(btx - b.x) > 0.5 || Math.abs(bty - b.y) > 0.5) moving = true;
+    else { b.x = btx; b.y = bty; }
+  });
+
+  if (!moving && animating) {
+    animating = false;
+    checkWin();            // 动画结束后判定通关
+  }
+}
+
+/* 通关判定：所有箱子都在终点上 */
+function checkWin() {
+  const win = boxes.every(b => isTarget(b.r, b.c));
+  if (win && !solved) {
+    solved = true;
+    showWin();
+  }
+}
+
+/* 主渲染循环 */
+function loop(t) {
+  updateAnimation();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // 依次绘制：地板 → 终点 → 墙 → 箱子 → 玩家
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      if (!isWall(r, c)) drawFloor(r, c);
+  targets.forEach(tg => drawTarget(tg.r, tg.c, t));
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      if (isWall(r, c)) drawWall(r, c);
+  boxes.forEach(drawBox);
+  drawPlayer();
+  requestAnimationFrame(loop);
+}
+
+/* =========================================================
+   通关弹窗与关卡切换
+   ========================================================= */
+const overlay = document.getElementById('overlay');
+function showWin() {
+  const last = (current === LEVELS.length - 1);
+  document.getElementById('modalEmoji').textContent = last ? '🏆' : '🎉';
+  document.getElementById('modalTitle').textContent = last ? '全部通关！' : '恭喜过关！';
+  document.getElementById('modalText').textContent = last
+    ? `你用 ${moves} 步完成了全部 ${LEVELS.length} 关，太厉害了！`
+    : `本关用了 ${moves} 步，点击进入下一关。`;
+  document.getElementById('modalBtn').textContent = last ? '再玩一次' : '下一关 ▶';
+  overlay.classList.add('show');
+}
+function hideWin() { overlay.classList.remove('show'); }
+
+/* 弹窗按钮：自动跳转下一关（若已是最后一关则回到第一关） */
+document.getElementById('modalBtn').addEventListener('click', () => {
+  hideWin();
+  if (current === LEVELS.length - 1) current = 0;
+  else current++;
+  loadLevel(current);
+});
+
+/* 底部按钮 */
+document.getElementById('prevBtn').addEventListener('click', () => {
+  if (current > 0) { current--; loadLevel(current); }
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+  hideWin();
+  if (current < LEVELS.length - 1) { current++; loadLevel(current); }
+  else {
+    // 无下一关：提示全部通关
+    document.getElementById('modalEmoji').textContent = '🏁';
+    document.getElementById('modalTitle').textContent = '已是最后一关';
+    document.getElementById('modalText').textContent = '这已经是最后一关啦，加油通关！';
+    document.getElementById('modalBtn').textContent = '知道了';
+    overlay.classList.add('show');
+  }
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  hideWin();
+  loadLevel(current);      // 重置当前关，步数自动清零
+});
+
+/* =========================================================
+   键盘控制：方向键 + WASD
+   ========================================================= */
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+  if (k === 'arrowup' || k === 'w') tryMove(-1, 0);
+  else if (k === 'arrowdown' || k === 's') tryMove(1, 0);
+  else if (k === 'arrowleft' || k === 'a') tryMove(0, -1);
+  else if (k === 'arrowright' || k === 'd') tryMove(0, 1);
+  else if (k === 'r') loadLevel(current);      // R 键快速重置
+});
+
+/* 启动游戏 */
+loadLevel(0);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
